@@ -82,3 +82,9 @@ If this variable is present, it would have backup location for the directory and
 differences between local_path and local_path_check
 As I said - using this variable is useful if you are short on traffic
 if that variable is commented , then rsync will be executed continuously but you won't need another directory
+
+### auto
+
+if present and set to "false" it would require manual
+action on every sync interaction. This would be useful if you are on limited 
+bandwith (mobile data). The option should be used instead of the local_path_check
