@@ -1,65 +1,84 @@
 #!/bin/bash
 
+DIR=$(pwd)
 config=.config
 command="$1"
 
-while getopts ":c:" opt; do
-  case $opt in
-    c)
-		config="$OPTARG"
-    ;;
-	s)
-		command="-s"
-	;;
-	h)
-		echo ""
-		echo "options:"
-		echo ""
-		echo "   -c /path/to/config/file"
-		echo "      if that parameter is missing it would look for .config file in the directory"
-		echo "      the config file should contain the following settings:"
-		echo ""
-		echo "         host - remote host. example user@server.com"
-		echo ""
-		echo "         local_path - path where the local files would be synced"
-		echo ""
-		echo "         remote_path - path where the remote files are"
-		echo ""
-		echo "   -s - initial sync from local location to remote destination"
-		echo "        note that on start it would sync back from the server first"
-		echo ""
-		echo ""
-		echo ""
-	;;
-  esac
-done
+auto="true"
+
+CONFIG_FILE=$DIR/$config
 
 #load config
-. $config
+if [ -f "$CONFIG_FILE" ]; then
+    . $CONFIG_FILE
+else
+    echo "Missing .config file. Add file named .config into the curent directory"
+    exit 1
+fi
 
 case $command in
-	-s|--sync|sync)
-		echo "Syncing start..."
-		#initial sync from remote location to local
-		rsync -zarh --delete $host:$remote_path $local_path
-		if [[ $local_path_check ]]; then
-			rsync -zarh --delete $local_path $local_path_check
-		fi
-		#sync files from local to remote location
-		while true
-		do
-			if [[ $local_path_check ]]; then
-				if ! diff -q $local_path $local_path_check &>/dev/null; then
-			  		>&2
-			  		rsync -zarh --delete $local_path $local_path_check
-			  		rsync -zarh --delete $local_path $host:$remote_path
-			  		date +"Change @ %c"
-				fi
-			else
-				rsync -zarh --delete $local_path $host:$remote_path
-				echo "Continuous syncing"
-			fi 
-			sleep 1
-		done
+	"-h")
+		echo ""
+		echo " usage:"
+		echo " 1. create a .config file in your current directory"
+		echo ""
+		echo "   the config should have the following parameters:"
+		echo ""
+		echo "     host - remote host. example user@server.com"
+		echo ""
+		echo "     local_path - path where the local files would be synced"
+		echo ""
+		echo "     remote_path - path where the remote files are"
+		echo ""
+		echo "   optionally you could add also:"
+		echo ""
+		echo "     local_path_check={path_to_second_directory}"
+		echo ""
+		echo "     this will be used to check if there are any changed filed and only then"
+		echo "     to send the changed to the remote host. This could help saving bandwidth,"
+		echo "     but would increase the space used"
+		echo ""
+		echo "     confirm=true|false - this will require confirmation on each sync. Useful if you have bandwith limit"
+		echo ""
+		echo ""
+		exit 1
 	;;
 esac
+
+echo ""
+echo "Syncing start..."
+#initial sync from remote location to local
+rsync -zarh --delete $host:$remote_path $local_path
+if [[ $local_path_check ]]; then
+	rsync -zarh --delete $local_path $local_path_check
+fi
+echo ""
+echo "Remote fetching complete..."
+echo ""
+read -p "Is everything on the sync from the source looks ok? [y|N] " -e -i N confirm
+
+if [ "${confirm^^}" = "N" ]; then
+	echo "Terminating the sync process!"
+	exit 1
+fi
+
+#sync files from local to remote location
+while true
+do
+	if [[ $local_path_check ]]; then
+		if ! diff -q $local_path $local_path_check &>/dev/null; then
+	  		>&2
+	  		rsync -zarh --delete $local_path $local_path_check
+	  		rsync -zarh --delete $local_path $host:$remote_path
+	  		date +"Change @ %c"
+		fi
+	else
+		rsync -zarh --delete $local_path $host:$remote_path
+		echo "Synchronised @ `date`"
+
+		if [ $auto == "false" ]; then
+			read -p "Continue?"
+		fi
+	fi
+	sleep 1
+done
