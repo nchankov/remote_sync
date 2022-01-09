@@ -5,6 +5,7 @@ config=.config
 command="$1"
 
 auto="true"
+backup_path="false"
 
 CONFIG_FILE=$DIR/$config
 
@@ -40,10 +41,19 @@ case $command in
 		echo ""
 		echo "     confirm=true|false - this will require confirmation on each sync. Useful if you have bandwith limit"
 		echo ""
+		echo "     auto=true|false - if true it would sync constantly. If false - it could save bandwidth"
 		echo ""
+		echo "     backup_path= - if set it would backup the local copy first and then will sync"
+		echo ""    
 		exit 1
 	;;
 esac
+
+echo ""
+if [ $backup_path != "false" ]; then
+	echo "Backing up local changes first"
+	rsync -zarh --delete $local_path $backup_path
+fi
 
 echo ""
 echo "Syncing start..."
